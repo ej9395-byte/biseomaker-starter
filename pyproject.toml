@@ -1,0 +1,8 @@
+[project]
+name = "biseomaker-starter"
+version = "1.0.0"
+description = "비서메이커 세컨드브레인 스타터"
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv",
+]

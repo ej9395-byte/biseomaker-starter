@@ -1,0 +1,8 @@
+{
+  "useMarkdownLinks": true,
+  "newFileFolderPath": "Inbox",
+  "attachmentFolderPath": "Assets",
+  "defaultViewMode": "source",
+  "promptDelete": false,
+  "trashOption": "local"
+}
