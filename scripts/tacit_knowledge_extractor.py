@@ -105,7 +105,7 @@ def _detect_tacit(text: str) -> list[tuple[str, str]]:
 def _classify_domain(snippet: str) -> str:
     domains = list(DOMAIN_FILES.keys())
     if not domains:
-        return domains[0] if domains else "operations"
+        return "operations"
     prompt = f"""다음 문장이 아래 도메인 중 어디에 해당하는지 도메인명만 답변하세요.
 도메인: {', '.join(domains)}
 
@@ -188,13 +188,31 @@ def cmd_weekly() -> None:
         _log("암묵지 없음 — weekly 스킵")
         return
 
+    domain_list = ", ".join(all_domains.keys())
     prompt = f"""아래 암묵지 목록에서 중복 항목을 제거하고 핵심만 남겨 재구성해 주세요.
-각 도메인별로 유지하고 마크다운 형식으로 출력하세요.
+반드시 아래 JSON 형식으로만 응답하세요 (코드블록 없이 순수 JSON):
+{{"도메인명": "정리된 마크다운 내용", ...}}
+
+도메인 목록: {domain_list}
 
 {json.dumps({k: v[:1500] for k, v in all_domains.items()}, ensure_ascii=False)}"""
 
     result = _claude(prompt, MODEL_LEARN)
-    _log(f"weekly 중복 제거 완료: {len(result)}자")
+
+    try:
+        cleaned = result.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        parsed = json.loads(cleaned)
+        saved = 0
+        for domain, content in parsed.items():
+            if domain in DOMAIN_FILES:
+                DOMAIN_FILES[domain].write_text(content, encoding="utf-8")
+                saved += 1
+        _log(f"weekly 중복 제거 완료: {saved}개 도메인 저장")
+    except Exception as e:
+        summary_path = TACIT_DIR / "_weekly_summary.md"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(result, encoding="utf-8")
+        _log(f"weekly 완료 (JSON 파싱 실패: {e}), 요약 저장: {summary_path.name}")
 
 
 def cmd_status() -> None:

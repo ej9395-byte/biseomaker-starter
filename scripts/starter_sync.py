@@ -81,10 +81,12 @@ def _generalize(content: str) -> str:
     return content
 
 
-def _git(args: list[str], cwd: Path) -> str:
+def _git(args: list[str], cwd: Path, check: bool = False) -> str:
     result = subprocess.run(
         ["git"] + args, cwd=cwd, capture_output=True, text=True
     )
+    if check and result.returncode != 0:
+        _log(f"git {' '.join(args)} 실패: {result.stderr.strip()}")
     return result.stdout.strip()
 
 # ---------------------------------------------------------------------------
@@ -118,17 +120,23 @@ def main():
         changed_files.append(src_name)
         _log(f"동기화 완료: {src_name}")
 
-    if not changed_files:
+    # 스크립트 동기화 외 로컬 편집 파일도 포함
+    _git(["add", "-A"], STARTER_REPO)
+    git_status = _git(["status", "--porcelain"], STARTER_REPO)
+
+    if not git_status:
         _log("이번 주 변경 없음 — 커밋 스킵")
         return
 
-    # git commit & push
+    all_changed = [line[3:].strip() for line in git_status.splitlines() if line.strip()]
     today = datetime.now().strftime("%Y-%m-%d")
-    _git(["add", "-A"], STARTER_REPO)
-    _git(["commit", "-m", f"chore: weekly sync {today} ({len(changed_files)}개 파일)"], STARTER_REPO)
-    _git(["push"], STARTER_REPO)
+    _git(["commit", "-m", f"chore: weekly sync {today} ({len(all_changed)}개 파일)"], STARTER_REPO)
+    _git(["push"], STARTER_REPO, check=True)
 
-    msg = f"스타터 레포 업데이트 완료 ({today})\n변경: {', '.join(changed_files)}"
+    msg = (
+        f"스타터 레포 업데이트 완료 ({today})\n"
+        f"변경: {', '.join(all_changed[:5])}{'...' if len(all_changed) > 5 else ''}"
+    )
     _log(msg)
     _send_telegram(msg)
 
